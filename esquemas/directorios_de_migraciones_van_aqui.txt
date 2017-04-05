@@ -1,0 +1,2 @@
+En el directorio /sql van a ir todas las migraciones con el estandar para archivos
+$(date +"%Y%m%d%H%M%S")__nombre_de_la_migracion.sql

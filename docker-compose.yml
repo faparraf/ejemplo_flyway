@@ -1,0 +1,30 @@
+version: "2"
+services:
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - http_proxy
+    depends_on:
+     - "postgres"
+    environment:
+      - COREDB_SCHEMA_NAME
+      - COREDB_URL
+      - COREDB_USER
+      - COREDB_PASSWORD
+    volumes:
+      - "./esquemas/:/drone/src/ejemplo_flyway/esquemas"
+      - "./migraciones.conf:/migraciones.conf"
+    command:
+      - migrate
+  postgres:
+    image: "kartoza/postgis:9.5-2.2"
+    ports:
+      - "5432:5432"
+    environment:
+      - "POSTGRES_USER=test"
+      - "POSTGRES_PASS=test"
+      - "ALLOW_IP_RANGE=0.0.0.0/0"
+    volumes:
+      - "./data/:/var/lib/postgresql"

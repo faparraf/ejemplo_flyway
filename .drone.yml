@@ -1,0 +1,93 @@
+# ejecutar ./secure despues de editar
+
+clone:
+  path: /ejemplo_flyway
+
+build:
+  # prepara para la construcción de la imagen
+  construir:
+    image: index.udistritaloas.edu.co/plataforma/base-os
+    auth_config:
+      username: drone
+      password: $$DRONE_REGISTRY_PASSWORD
+      email: drone@localhost
+    pull: true
+    commands:
+      - ./drone/build.sh
+    when:
+      branch: develop
+
+  # ejecuta la imagen
+  ejecutar:
+    image: index.udistritaloas.edu.co/core/udistrital_core_db
+    auth_config:
+      username: drone
+      password: $$DRONE_REGISTRY_PASSWORD
+      email: drone@localhost
+    pull: true
+    volumes:
+      - /root/.gnupg/:/root/.gnupg/:ro
+    commands:
+      - ./drone/fix_postgis.sh
+      - ./drone/run.sh
+    when:
+      branch:
+        - master
+        - ambiente_*
+
+# publicar la imágen de docker
+publish:
+  docker:
+    registry: index.udistritaloas.edu.co
+    repo: core/udistrital_core_db
+    username: drone
+    password: $$DRONE_REGISTRY_PASSWORD
+    email: drone@localhost
+    tag: latest
+    when:
+      branch: develop
+
+# publicar "artefacto"
+publish:
+  artefacto:
+    image: plugins/drone-s3
+    access_key: $$DRONE_AWS_ACCESS_KEY_ID
+    secret_key: $$DRONE_AWS_SECRET_ACCESS_KEY
+    bucket: drone-helper-bucket
+    region: us-east-1
+    source: $$COMMIT-done
+    target: core/udistrital_core_db/$$BRANCH/$$COMMIT/done
+    when:
+      branch:
+        - master
+        - ambiente_*
+
+# cache en drone
+cache:
+  mount:
+    - /drone/docker
+    - cache
+  when:
+    branch: develop
+
+# servicios (para CI de migraciones)
+compose:
+  postgres:
+    image: kartoza/postgis:9.5-2.2
+    environment:
+      - POSTGRES_USER=test
+      - POSTGRES_PASS=test
+      - ALLOW_IP_RANGE=0.0.0.0/0
+
+# notificar a telegram
+notify:
+  webhook:
+    urls:
+      - https://api.telegram.org/bot$$DRONE_TELEGRAM_TOKEN/sendMessage
+    content_type: application/json
+    template: >
+      {
+        "chat_id": "-129350403",
+        "parse_mode": "Markdown",
+        "text": "`{{repo.full_name}}` [{{uppercase build.status}}]({{build.link_url}}) `{{build.branch}}`@{{truncate build.commit 7}}"
+      }
